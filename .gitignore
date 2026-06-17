@@ -1,0 +1,17 @@
+# CMake build directories
+/build/
+/cmake-build-*/
+/out/
+
+# IDE files
+/.idea/
+/.vscode/
+/*.user
+
+# SFML FetchContent downloads
+/_deps/
+/SFML-*/
+
+# OS specific files
+.DS_Store
+Thumbs.db
