@@ -20,10 +20,4 @@ namespace Physics
     // F_ij = (24 * epsilon / r^2) * ((sigma/r)^6) * (2 * (sigma/r)^6 - 1) * r_vec
     // where r_vec = pos_i - pos_j
     Vector2f calculateLJForce(const Vector2f& r_vec, float epsilon, float sigma, float cutoff);
-
-    // Calculate acceleration from a radial field point source
-    Vector2f calculateRadialFieldAcc(const Vector2f& p, const Vector2f& center, float intensity, float minRadius);
-
-    // Calculate acceleration from a segment field (line source)
-    Vector2f calculateSegmentFieldAcc(const Vector2f& p, const Vector2f& a, const Vector2f& b, float intensity);
 }

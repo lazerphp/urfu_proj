@@ -8,6 +8,18 @@ namespace {
     sf::Vector2f toSF(const Vector2f& v) {
         return {v.x, v.y};
     }
+
+    sf::Color getColorAt(float x_val, sf::Color baseColor) {
+        if (x_val <= 0.25f) {
+            float t = x_val / 0.25f;
+            return sf::Color(
+                static_cast<unsigned char>(255.f * (1.f - t) + baseColor.r * t),
+                static_cast<unsigned char>(255.f * (1.f - t) + baseColor.g * t),
+                static_cast<unsigned char>(255.f * (1.f - t) + baseColor.b * t)
+            );
+        }
+        return baseColor;
+    }
 }
 
 // ==========================================
@@ -18,6 +30,16 @@ Simulation::Simulation()
     : m_config(Config::loadFromFile("config.yaml"))
     , m_environment(m_config)
 {
+    // Initialize potential fields from config
+    for (const auto& field : m_config.radialFields)
+    {
+        m_fields.push_back(std::make_unique<RadialField>(field.center, field.intensity, field.minRadius));
+    }
+    for (const auto& field : m_config.segmentFields)
+    {
+        m_fields.push_back(std::make_unique<SegmentField>(field.start, field.end, field.intensity));
+    }
+
     initParticles();
     m_targetZone = m_environment.getTargetZone();
     m_reachedCount = m_targetZone ? m_targetZone->getParticleCount() : 0;
@@ -95,8 +117,48 @@ void Simulation::update()
 
 void Simulation::updatePhysics(float dt)
 {
-    for (auto& p : m_particles)
+    size_t numParticles = m_particles.size();
+    std::vector<Vector2f> accelerations(numParticles, {0.f, 0.f});
+
+    // 1. Calculate Lennard-Jones forces between all pairs of particles
+    if (m_config.ljEnabled)
     {
+        for (size_t i = 0; i < numParticles; ++i)
+        {
+            for (size_t j = i + 1; j < numParticles; ++j)
+            {
+                Vector2f r_vec = m_particles[i].getPosition() - m_particles[j].getPosition();
+                Vector2f force = Physics::calculateLJForce(r_vec, m_config.ljEpsilon, m_config.ljSigma, m_config.ljCutoff);
+                accelerations[i] += force;
+                accelerations[j] -= force;
+            }
+        }
+    }
+
+    // 2. Add external potential fields
+    for (size_t i = 0; i < numParticles; ++i)
+    {
+        Vector2f pos = m_particles[i].getPosition();
+        for (const auto& field : m_fields)
+        {
+            accelerations[i] += field->calculateAcceleration(pos);
+        }
+
+        // 3. Limit/cap acceleration to prevent numerical explosions (safety guard)
+        float accSq = accelerations[i].x * accelerations[i].x + accelerations[i].y * accelerations[i].y;
+        float maxAcc = m_config.ljMaxAcceleration;
+        if (accSq > maxAcc * maxAcc)
+        {
+            float accMag = std::sqrt(accSq);
+            accelerations[i] = (accelerations[i] / accMag) * maxAcc;
+        }
+    }
+
+    // 4. Update particle positions and velocities, and resolve collisions
+    for (size_t i = 0; i < numParticles; ++i)
+    {
+        auto& p = m_particles[i];
+        p.setAcceleration(accelerations[i]);
         p.update(dt);
 
         for (const auto& wall : m_environment.getBoundarySegments())
@@ -381,18 +443,18 @@ void Visualizer::render()
             sf::Color fillColor, outlineColor;
             if (zone->getType() == "spawn")
             {
-                fillColor = sf::Color(150, 210, 40, 40);
-                outlineColor = sf::Color(150, 210, 40, 150);
+                fillColor = sf::Color(150, 210, 40, 90);
+                outlineColor = sf::Color(150, 210, 40, 220);
             }
             else if (zone->getType() == "target")
             {
-                fillColor = sf::Color(220, 50, 50, 40);
-                outlineColor = sf::Color(220, 50, 50, 150);
+                fillColor = sf::Color(220, 50, 50, 90);
+                outlineColor = sf::Color(220, 50, 50, 220);
             }
             else
             {
-                fillColor = sf::Color(148, 163, 184, 40);
-                outlineColor = sf::Color(148, 163, 184, 150);
+                fillColor = sf::Color(148, 163, 184, 90);
+                outlineColor = sf::Color(148, 163, 184, 220);
             }
 
             shape.setFillColor(fillColor);
@@ -423,171 +485,10 @@ void Visualizer::render()
     }
     drawGrid();
 
-    // Draw Radial Fields (Point Sources) with smooth concentric-band volumetric glow
-    for (const auto& field : m_sim.getConfig().radialFields)
+    // Draw Potential Fields
+    for (const auto& field : m_sim.getFields())
     {
-        // Ambient reach: larger spread but very pale/low opacity (maxAlpha 110.f) for subtle decay
-        float maxRadius = std::min(250.f, std::sqrt(std::abs(field.intensity)) * 3.5f);
-        if (maxRadius < 10.f) maxRadius = 70.f;
-
-        // Custom colors: attractive amber/yellow or repulsive sky-blue
-        sf::Color baseColor = (field.intensity < 0.f) ? sf::Color(255, 180, 70) : sf::Color(80, 190, 255);
-
-        // Smooth bell-curve function: f(x) = (1 - x^2)^2. Samples boundaries to create seamless transition bands
-        const int numBands = 8;
-        float x[numBands] = { 0.0f, 0.15f, 0.3f, 0.45f, 0.6f, 0.75f, 0.9f, 1.0f };
-        float alphaVal[numBands];
-        float maxAlpha = 110.f;
-        for (int i = 0; i < numBands; ++i)
-        {
-            float val = 1.f - x[i] * x[i];
-            alphaVal[i] = maxAlpha * val * val;
-        }
-
-        const int numSegments = 32;
-        sf::Vector2f center = toSF(field.center);
-
-        // 1. Center disc (from radius 0 to x[1]*maxRadius)
-        {
-            sf::Color c0 = baseColor; c0.a = static_cast<unsigned char>(alphaVal[0]);
-            sf::Color c1 = baseColor; c1.a = static_cast<unsigned char>(alphaVal[1]);
-            float r1 = maxRadius * x[1];
-
-            sf::VertexArray fan(sf::PrimitiveType::TriangleFan, numSegments + 2);
-            fan[0] = sf::Vertex(center, c0);
-            for (int i = 0; i <= numSegments; ++i)
-            {
-                float angle = (i * 2.f * 3.14159265f) / numSegments;
-                sf::Vector2f pos(
-                    center.x + r1 * std::cos(angle),
-                    center.y + r1 * std::sin(angle)
-                );
-                fan[i + 1] = sf::Vertex(pos, c1);
-            }
-            m_window.draw(fan);
-        }
-
-        // 2. Concentric ring bands (from band j to j+1)
-        for (int j = 1; j < numBands - 1; ++j)
-        {
-            sf::Color c_j = baseColor; c_j.a = static_cast<unsigned char>(alphaVal[j]);
-            sf::Color c_next = baseColor; c_next.a = static_cast<unsigned char>(alphaVal[j+1]);
-            float r_j = maxRadius * x[j];
-            float r_next = maxRadius * x[j+1];
-
-            sf::VertexArray strip(sf::PrimitiveType::TriangleStrip, (numSegments + 1) * 2);
-            for (int i = 0; i <= numSegments; ++i)
-            {
-                float angle = (i * 2.f * 3.14159265f) / numSegments;
-                float cosA = std::cos(angle);
-                float sinA = std::sin(angle);
-
-                sf::Vector2f pos_in(center.x + r_j * cosA, center.y + r_j * sinA);
-                sf::Vector2f pos_out(center.x + r_next * cosA, center.y + r_next * sinA);
-
-                strip[2 * i] = sf::Vertex(pos_in, c_j);
-                strip[2 * i + 1] = sf::Vertex(pos_out, c_next);
-            }
-            m_window.draw(strip);
-        }
-    }
-
-    // Draw Segment Fields (Capacitor Plates) with smooth concentric-band volumetric capsule glow
-    for (const auto& field : m_sim.getConfig().segmentFields)
-    {
-        sf::Vector2f a = toSF(field.start);
-        sf::Vector2f b = toSF(field.end);
-        sf::Vector2f dir = b - a;
-        float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
-        if (len < 0.001f) continue;
-
-        sf::Vector2f tangent = dir / len;
-        sf::Vector2f normal(-tangent.y, tangent.x);
-
-        // Ambient reach: larger spread but very pale/low opacity (maxAlpha 90.f) for subtle decay
-        float maxWidth = std::min(150.f, std::sqrt(std::abs(field.intensity)) * 2.5f);
-        if (maxWidth < 5.f) maxWidth = 50.f;
-
-        // Custom colors: attractive amber/yellow or repulsive sky-blue
-        sf::Color baseColor = (field.intensity < 0.f) ? sf::Color(255, 180, 70) : sf::Color(80, 190, 255);
-
-        // Smooth bell-curve function: f(x) = (1 - x^2)^2. Samples boundaries to create seamless transition bands
-        const int numBands = 8;
-        float x[numBands] = { 0.0f, 0.15f, 0.3f, 0.45f, 0.6f, 0.75f, 0.9f, 1.0f };
-        float alphaVal[numBands];
-        float maxAlpha = 90.f;
-        for (int i = 0; i < numBands; ++i)
-        {
-            float val = 1.f - x[i] * x[i];
-            alphaVal[i] = maxAlpha * val * val;
-        }
-
-        const int numCapSegments = 24;
-        float baseAngle = std::atan2(tangent.y, tangent.x);
-
-        for (int j = 0; j < numBands - 1; ++j)
-        {
-            sf::Color c_in = baseColor; c_in.a = static_cast<unsigned char>(alphaVal[j]);
-            sf::Color c_out = baseColor; c_out.a = static_cast<unsigned char>(alphaVal[j+1]);
-            float w_in = maxWidth * x[j];
-            float w_out = maxWidth * x[j+1];
-
-            // A. Left-side body strip for this band (zero overlap)
-            sf::VertexArray leftStrip(sf::PrimitiveType::TriangleStrip, 4);
-            leftStrip[0] = sf::Vertex(a + normal * w_in, c_in);
-            leftStrip[1] = sf::Vertex(a + normal * w_out, c_out);
-            leftStrip[2] = sf::Vertex(b + normal * w_in, c_in);
-            leftStrip[3] = sf::Vertex(b + normal * w_out, c_out);
-            m_window.draw(leftStrip);
-
-            // B. Right-side body strip for this band (zero overlap)
-            sf::VertexArray rightStrip(sf::PrimitiveType::TriangleStrip, 4);
-            rightStrip[0] = sf::Vertex(a - normal * w_in, c_in);
-            rightStrip[1] = sf::Vertex(a - normal * w_out, c_out);
-            rightStrip[2] = sf::Vertex(b - normal * w_in, c_in);
-            rightStrip[3] = sf::Vertex(b - normal * w_out, c_out);
-            m_window.draw(rightStrip);
-
-            // C. Cap A semi-circular ring band for this band (zero overlap)
-            sf::VertexArray capA(sf::PrimitiveType::TriangleStrip, (numCapSegments + 1) * 2);
-            for (int i = 0; i <= numCapSegments; ++i)
-            {
-                float angle = baseAngle + 3.14159265f * 0.5f + (i * 3.14159265f) / numCapSegments;
-                float cosA = std::cos(angle);
-                float sinA = std::sin(angle);
-
-                sf::Vector2f pos_in(a.x + w_in * cosA, a.y + w_in * sinA);
-                sf::Vector2f pos_out(a.x + w_out * cosA, a.y + w_out * sinA);
-
-                capA[2 * i] = sf::Vertex(pos_in, c_in);
-                capA[2 * i + 1] = sf::Vertex(pos_out, c_out);
-            }
-            m_window.draw(capA);
-
-            // D. Cap B semi-circular ring band for this band (zero overlap)
-            sf::VertexArray capB(sf::PrimitiveType::TriangleStrip, (numCapSegments + 1) * 2);
-            for (int i = 0; i <= numCapSegments; ++i)
-            {
-                float angle = baseAngle - 3.14159265f * 0.5f + (i * 3.14159265f) / numCapSegments;
-                float cosA = std::cos(angle);
-                float sinA = std::sin(angle);
-
-                sf::Vector2f pos_in(b.x + w_in * cosA, b.y + w_in * sinA);
-                sf::Vector2f pos_out(b.x + w_out * cosA, b.y + w_out * sinA);
-
-                capB[2 * i] = sf::Vertex(pos_in, c_in);
-                capB[2 * i + 1] = sf::Vertex(pos_out, c_out);
-            }
-            m_window.draw(capB);
-        }
-
-        // Draw the center plate line (slightly glowing and thin)
-        sf::VertexArray centerLine(sf::PrimitiveType::Lines, 2);
-        sf::Color lineCol = baseColor;
-        lineCol.a = 150; 
-        centerLine[0] = sf::Vertex(a, lineCol);
-        centerLine[1] = sf::Vertex(b, lineCol);
-        m_window.draw(centerLine);
+        field->render(m_window);
     }
 
     // Draw Outer Boundary Walls

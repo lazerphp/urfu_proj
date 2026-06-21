@@ -3,7 +3,9 @@
 #include "core/Config.hpp"
 #include "entities/Particle.hpp"
 #include "entities/Environment.hpp"
+#include "entities/Field.hpp"
 #include <vector>
+#include <memory>
 
 class TargetZone;
 
@@ -17,6 +19,7 @@ public:
     const Config& getConfig() const { return m_config; }
     const Environment& getEnvironment() const { return m_environment; }
     const std::vector<Particle>& getParticles() const { return m_particles; }
+    const std::vector<std::unique_ptr<PotentialField>>& getFields() const { return m_fields; }
 
     float getVirtualTime() const { return m_virtualTime; }
     int getReachedCount() const { return m_reachedCount; }
@@ -34,6 +37,7 @@ private:
     Config m_config;
     Environment m_environment;
     std::vector<Particle> m_particles;
+    std::vector<std::unique_ptr<PotentialField>> m_fields;
 
     const TargetZone* m_targetZone{nullptr};
     float m_virtualTime{0.f};
