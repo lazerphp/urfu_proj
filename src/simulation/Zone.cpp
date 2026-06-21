@@ -1,4 +1,4 @@
-#include "Zone.hpp"
+#include "simulation/Zone.hpp"
 #include <SFML/Graphics/ConvexShape.hpp>
 
 Zone::Zone(const std::string& type, const Config::Compartment* compartment)
@@ -7,17 +7,17 @@ Zone::Zone(const std::string& type, const Config::Compartment* compartment)
 {
     if (type == "spawn")
     {
-        m_fillColor = sf::Color(59, 130, 246, 40); // Blue-500, semi-transparent
+        m_fillColor = sf::Color(59, 130, 246, 40);
         m_outlineColor = sf::Color(59, 130, 246, 150);
     }
     else if (type == "target")
     {
-        m_fillColor = sf::Color(16, 185, 129, 40); // Emerald-500, semi-transparent
+        m_fillColor = sf::Color(16, 185, 129, 40);
         m_outlineColor = sf::Color(16, 185, 129, 150);
     }
     else
     {
-        m_fillColor = sf::Color(148, 163, 184, 40); // Slate-400
+        m_fillColor = sf::Color(148, 163, 184, 40);
         m_outlineColor = sf::Color(148, 163, 184, 150);
     }
 }

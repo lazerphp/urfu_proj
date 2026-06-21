@@ -1,11 +1,11 @@
-#include "Config.hpp"
+#include "core/Config.hpp"
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 #include <cstdint>
 
 Config Config::loadFromFile(const std::string& filepath)
 {
-    Config config; // Start with default values
+    Config config;
 
     try
     {
@@ -57,12 +57,10 @@ Config Config::loadFromFile(const std::string& filepath)
             }
         }
 
-        // Parse simulation elements (compartments and obstacles)
         if (root["simulation_elements"])
         {
             auto elementsNode = root["simulation_elements"];
             
-            // 1. Compartments
             if (elementsNode["compartments"])
             {
                 auto compartmentsNode = elementsNode["compartments"];
@@ -89,7 +87,6 @@ Config Config::loadFromFile(const std::string& filepath)
                 }
             }
 
-            // 2. Zones
             if (elementsNode["zones"])
             {
                 auto zonesNode = elementsNode["zones"];
@@ -105,7 +102,6 @@ Config Config::loadFromFile(const std::string& filepath)
                 }
             }
 
-            // 3. Obstacles (independent wall segments)
             if (elementsNode["obstacles"])
             {
                 auto obstaclesNode = elementsNode["obstacles"];

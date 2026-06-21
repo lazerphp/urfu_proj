@@ -1,8 +1,8 @@
 #pragma once
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Color.hpp>
-#include "Config.hpp"
-#include "Particle.hpp"
+#include "core/Config.hpp"
+#include "simulation/Particle.hpp"
 #include <string>
 #include <vector>
 
@@ -22,7 +22,7 @@ private:
     bool isPointInPolygon(sf::Vector2f p, const std::vector<sf::Vector2f>& polygon) const;
 
 private:
-    std::string m_type; // "spawn" or "target"
+    std::string m_type;
     const Config::Compartment* m_compartment{nullptr};
     sf::Color m_fillColor;
     sf::Color m_outlineColor;

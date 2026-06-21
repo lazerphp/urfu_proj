@@ -31,15 +31,17 @@ FetchContent_MakeAvailable(yaml-cpp)
 # 4. Declare our executable and its source files
 add_executable(sfml_app 
     src/main.cpp 
-    src/Game.cpp
-    src/Config.cpp
-    src/Particle.cpp
-    src/Zone.cpp
+    src/core/Simulation.cpp
+    src/core/Config.cpp
+    src/simulation/Particle.cpp
+    src/simulation/Zone.cpp
+    src/simulation/Environment.cpp
+    src/physics/Physics.cpp
 )
 
-# 5. Include the include directory for headers
+# 5. Include the src directory for headers
 target_include_directories(sfml_app PRIVATE 
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # 6. Link SFML targets and yaml-cpp

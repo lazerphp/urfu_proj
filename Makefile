@@ -3,6 +3,7 @@ BUILD_DIR = build
 EXEC = $(BUILD_DIR)/sfml_app
 CXX = g++-14
 CC = gcc-14
+ARGS = 
 
 .PHONY: all configure build run clean rebuild
 
@@ -22,10 +23,10 @@ build: configure
 	@echo "Building project..."
 	@cmake --build $(BUILD_DIR)
 
-# Run the compiled application
+# Run the compiled application with optional arguments (e.g., make run ARGS="--headless")
 run: build
 	@echo "Running application..."
-	@./$(EXEC)
+	@./$(EXEC) $(ARGS)
 
 # Clean build artifacts
 clean:
