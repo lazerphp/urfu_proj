@@ -26,16 +26,19 @@ struct Config
     sf::Color backgroundColor{15, 23, 42};
 
     // Simulation elements from YAML
-    std::vector<sf::Vector2f> boundaryPolygon; // Outer closed corridor
-
-    struct SpawnZone
+    struct Compartment
     {
-        float x{0.f};
-        float y{0.f};
-        float width{0.f};
-        float height{0.f};
-        bool enabled{false};
-    } spawnZone;
+        std::string name;
+        std::vector<sf::Vector2f> polygon;
+    };
+    std::vector<Compartment> compartments;
+
+    struct ZoneConfig
+    {
+        std::string type;
+        std::string compartment;
+    };
+    std::vector<ZoneConfig> zones;
 
     struct ObstacleSegment
     {

@@ -3,7 +3,7 @@
 #include <SFML/Graphics.hpp>
 #include "Config.hpp"
 #include "Particle.hpp"
-#include "SpawnZone.hpp"
+#include "Zone.hpp"
 #include <optional>
 #include <vector>
 
@@ -36,12 +36,22 @@ private:
     void updateGridCursor(sf::Vector2i mousePosition);
 
     // Physical simulation elements
-    SpawnZone m_spawnZone;
+    struct WallSegment
+    {
+        sf::Vector2f start;
+        sf::Vector2f end;
+    };
+    std::vector<WallSegment> m_boundarySegments;
+    std::vector<Zone> m_zones;
+    const Zone* m_spawnZonePtr{nullptr};
+
     std::vector<Particle> m_particles;
     void initParticles();
+    void buildBoundarySegments();
 
     // Physics helper functions
     bool isPointInPolygon(sf::Vector2f p, const std::vector<sf::Vector2f>& polygon) const;
+    bool isPointInCorridor(sf::Vector2f p) const;
     sf::Vector2f closestPointOnSegment(sf::Vector2f p, sf::Vector2f a, sf::Vector2f b) const;
     void resolveCollisionWithSegment(Particle& p, sf::Vector2f a, sf::Vector2f b, float radius, bool isBoundary) const;
 };

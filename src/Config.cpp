@@ -57,28 +57,55 @@ Config Config::loadFromFile(const std::string& filepath)
             }
         }
 
-        // Parse simulation elements (boundary polygon and obstacles)
+        // Parse simulation elements (compartments and obstacles)
         if (root["simulation_elements"])
         {
             auto elementsNode = root["simulation_elements"];
             
-            // 1. Boundary Polygon vertices
-            if (elementsNode["boundary_polygon"])
+            // 1. Compartments
+            if (elementsNode["compartments"])
             {
-                auto polyNode = elementsNode["boundary_polygon"];
-                for (const auto& vertexNode : polyNode)
+                auto compartmentsNode = elementsNode["compartments"];
+                for (const auto& compNode : compartmentsNode)
                 {
-                    if (vertexNode["x"] && vertexNode["y"])
+                    if (compNode["name"] && compNode["polygon"])
                     {
-                        config.boundaryPolygon.push_back({
-                            vertexNode["x"].as<float>(),
-                            vertexNode["y"].as<float>()
-                        });
+                        Config::Compartment comp;
+                        comp.name = compNode["name"].as<std::string>();
+                        
+                        auto polyNode = compNode["polygon"];
+                        for (const auto& vertexNode : polyNode)
+                        {
+                            if (vertexNode["x"] && vertexNode["y"])
+                            {
+                                comp.polygon.push_back({
+                                    vertexNode["x"].as<float>(),
+                                    vertexNode["y"].as<float>()
+                                });
+                            }
+                        }
+                        config.compartments.push_back(comp);
                     }
                 }
             }
 
-            // 2. Obstacles (independent wall segments)
+            // 2. Zones
+            if (elementsNode["zones"])
+            {
+                auto zonesNode = elementsNode["zones"];
+                for (const auto& zoneNode : zonesNode)
+                {
+                    if (zoneNode["type"] && zoneNode["compartment"])
+                    {
+                        Config::ZoneConfig zone;
+                        zone.type = zoneNode["type"].as<std::string>();
+                        zone.compartment = zoneNode["compartment"].as<std::string>();
+                        config.zones.push_back(zone);
+                    }
+                }
+            }
+
+            // 3. Obstacles (independent wall segments)
             if (elementsNode["obstacles"])
             {
                 auto obstaclesNode = elementsNode["obstacles"];
@@ -96,20 +123,6 @@ Config Config::loadFromFile(const std::string& filepath)
                             });
                         }
                     }
-                }
-            }
-
-            // 3. Spawn Zone
-            if (elementsNode["spawn_zone"])
-            {
-                auto zoneNode = elementsNode["spawn_zone"];
-                if (zoneNode["x"] && zoneNode["y"] && zoneNode["width"] && zoneNode["height"])
-                {
-                    config.spawnZone.x = zoneNode["x"].as<float>();
-                    config.spawnZone.y = zoneNode["y"].as<float>();
-                    config.spawnZone.width = zoneNode["width"].as<float>();
-                    config.spawnZone.height = zoneNode["height"].as<float>();
-                    config.spawnZone.enabled = true;
                 }
             }
         }

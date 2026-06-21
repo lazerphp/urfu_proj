@@ -34,7 +34,7 @@ add_executable(sfml_app
     src/Game.cpp
     src/Config.cpp
     src/Particle.cpp
-    src/SpawnZone.cpp
+    src/Zone.cpp
 )
 
 # 5. Include the include directory for headers

@@ -25,33 +25,58 @@ background_color:
 
 # Physical boundary elements
 simulation_elements:
-  # Closed polygon approximating the requested stepped shape
-  boundary_polygon:
-    - {x: 100, y: 60}
-    - {x: 280, y: 60}
-    - {x: 280, y: 140}
-    - {x: 800, y: 140}
-    - {x: 800, y: 480}
-    - {x: 460, y: 480}
-    - {x: 460, y: 620}
-    - {x: 620, y: 620}
-    - {x: 620, y: 840}
-    - {x: 200, y: 840}
-    - {x: 200, y: 620}
-    - {x: 360, y: 620}
-    - {x: 360, y: 380}
-    - {x: 700, y: 380}
-    - {x: 700, y: 240}
-    - {x: 280, y: 240}
-    - {x: 280, y: 320}
-    - {x: 100, y: 320}
+  # Compartments defining the segments of the corridor
+  compartments:
+    - name: "start_reservoir"
+      polygon:
+        - {x: 100, y: 60}
+        - {x: 280, y: 60}
+        - {x: 280, y: 140}
+        - {x: 280, y: 240}
+        - {x: 280, y: 320}
+        - {x: 100, y: 320}
+    - name: "top_channel"
+      polygon:
+        - {x: 280, y: 140}
+        - {x: 700, y: 140}
+        - {x: 700, y: 240}
+        - {x: 280, y: 240}
+    - name: "right_channel"
+      polygon:
+        - {x: 700, y: 140}
+        - {x: 800, y: 140}
+        - {x: 800, y: 480}
+        - {x: 700, y: 480}
+        - {x: 700, y: 380}
+        - {x: 700, y: 240}
+    - name: "middle_channel"
+      polygon:
+        - {x: 460, y: 380}
+        - {x: 700, y: 380}
+        - {x: 700, y: 480}
+        - {x: 460, y: 480}
+    - name: "central_channel"
+      polygon:
+        - {x: 360, y: 380}
+        - {x: 460, y: 380}
+        - {x: 460, y: 480}
+        - {x: 460, y: 620}
+        - {x: 360, y: 620}
+    - name: "end_reservoir"
+      polygon:
+        - {x: 200, y: 620}
+        - {x: 360, y: 620}
+        - {x: 460, y: 620}
+        - {x: 620, y: 620}
+        - {x: 620, y: 840}
+        - {x: 200, y: 840}
 
-  # Spawn zone (where particles are initially generated)
-  spawn_zone:
-    x: 120
-    y: 80
-    width: 140
-    height: 220
+  # Logical zones in the simulation
+  zones:
+    - type: "spawn"
+      compartment: "start_reservoir"
+    - type: "target"
+      compartment: "end_reservoir"
 
   # Internal obstacles (independent wall segments that particles must avoid)
   obstacles: []
