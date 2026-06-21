@@ -1,6 +1,5 @@
 #pragma once
-#include <SFML/Graphics/Color.hpp>
-#include <SFML/System/Vector2.hpp>
+#include "core/Types.hpp"
 #include <string>
 #include <vector>
 
@@ -23,13 +22,18 @@ struct Config
         std::string title{"Physics Simulation"};
     } window;
     
-    sf::Color backgroundColor{15, 23, 42};
+    struct BackgroundColor
+    {
+        unsigned char r{15};
+        unsigned char g{23};
+        unsigned char b{42};
+    } backgroundColor;
 
     // Simulation elements from YAML
     struct Compartment
     {
         std::string name;
-        std::vector<sf::Vector2f> polygon;
+        std::vector<Vector2f> polygon;
     };
     std::vector<Compartment> compartments;
 
@@ -42,8 +46,8 @@ struct Config
 
     struct ObstacleSegment
     {
-        sf::Vector2f start;
-        sf::Vector2f end;
+        Vector2f start;
+        Vector2f end;
     };
     std::vector<ObstacleSegment> obstacles; // Internal independent walls
 

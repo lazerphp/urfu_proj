@@ -1,16 +1,16 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include "core/Config.hpp"
-#include "simulation/Particle.hpp"
-#include "simulation/Environment.hpp"
+#include "entities/Particle.hpp"
+#include "entities/Environment.hpp"
 #include <vector>
-#include <memory>
 
-class SimulationCore
+class Simulation
 {
 public:
-    SimulationCore(const Config& config);
-    void update();
+    Simulation();
+    void run(); // Pure physics headless loop
+    void update(); // Step physical state forward
 
     const Config& getConfig() const { return m_config; }
     const Environment& getEnvironment() const { return m_environment; }
@@ -26,11 +26,11 @@ private:
     std::vector<Particle> m_particles;
 };
 
-class Simulation
+class Visualizer
 {
 public:
-    Simulation();
-    void run();
+    Visualizer(Simulation& sim);
+    void run(); // Graphic loop with window and events
 
 private:
     void processEvents();
@@ -42,7 +42,7 @@ private:
     void updateGridCursor(sf::Vector2i mousePosition);
 
 private:
-    SimulationCore m_core;
+    Simulation& m_sim;
     sf::RenderWindow m_window;
 
     // View manipulation state

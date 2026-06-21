@@ -4,28 +4,83 @@
 #include <random>
 #include <cmath>
 
+namespace {
+    sf::Vector2f toSF(const Vector2f& v) {
+        return {v.x, v.y};
+    }
+}
+
 // ==========================================
-// SimulationCore Implementation (Pure Physics)
+// Simulation Implementation (Pure Physics Core)
 // ==========================================
 
-SimulationCore::SimulationCore(const Config& config)
-    : m_config(config)
+Simulation::Simulation()
+    : m_config(Config::loadFromFile("config.yaml"))
     , m_environment(m_config)
 {
     initParticles();
 }
 
-void SimulationCore::update()
+void Simulation::run()
+{
+    float virtualTime = 0.f;
+    const float maxVirtualTime = 1000.f; // timeout in virtual seconds
+    
+    float lastReportTime = -1.f;
+    int totalParticles = m_particles.size();
+    
+    std::cout << "Simulation loop started (Headless)." << std::endl;
+    
+    while (true)
+    {
+        update();
+        virtualTime += m_config.dt * m_config.physicsStepsPerFrame;
+        
+        int reached = m_environment.getParticlesInTarget();
+        
+        // Output status every 1.0 virtual seconds
+        if (virtualTime - lastReportTime >= 1.0f)
+        {
+            std::cout << "[Virtual Time: " << std::round(virtualTime) << "s] Reached target: " 
+                          << reached << "/" << totalParticles << std::endl;
+            lastReportTime = virtualTime;
+        }
+        
+        // Target achieved condition
+        if (reached >= totalParticles)
+        {
+            std::cout << "Success: All " << totalParticles << " particles reached the destination reservoir!" << std::endl;
+            std::cout << "Total Virtual Time: " << virtualTime << " seconds." << std::endl;
+            break;
+        }
+        
+        // Timeout condition
+        if (virtualTime >= maxVirtualTime)
+        {
+            std::cout << "Timeout: Simulation ended after " << maxVirtualTime 
+                          << " virtual seconds. Particles reached: " << reached << "/" << totalParticles << std::endl;
+            break;
+        }
+    }
+    
+    std::cout << "Simulation loop ended." << std::endl;
+}
+
+void Simulation::update()
 {
     for (int i = 0; i < m_config.physicsStepsPerFrame; ++i)
     {
         updatePhysics(m_config.dt);
     }
 
-    m_environment.update(m_particles);
+    // Update zones (delegating processing of particles to each zone)
+    for (auto& zone : m_environment.getZones())
+    {
+        zone->processParticles(m_particles);
+    }
 }
 
-void SimulationCore::updatePhysics(float dt)
+void Simulation::updatePhysics(float dt)
 {
     for (auto& p : m_particles)
     {
@@ -40,10 +95,24 @@ void SimulationCore::updatePhysics(float dt)
         {
             Physics::resolveCollisionWithSegment(p, obs.start, obs.end, m_config.particleRadius, false, m_config.compartments);
         }
+
+        for (const auto& zone : m_environment.getZones())
+        {
+            if (!zone->getCompartment()) continue;
+
+            if (zone->getType() == "spawn" && p.hasExitedSpawnZone())
+            {
+                Physics::resolveCollisionWithZone(p, zone->getCompartment()->polygon, m_config.particleRadius, true);
+            }
+            else if (zone->getType() == "target" && p.hasEnteredTargetZone())
+            {
+                Physics::resolveCollisionWithZone(p, zone->getCompartment()->polygon, m_config.particleRadius, false);
+            }
+        }
     }
 }
 
-void SimulationCore::initParticles()
+void Simulation::initParticles()
 {
     const Zone* spawnZone = m_environment.getSpawnZone();
     if (!spawnZone || !spawnZone->getCompartment() || spawnZone->getCompartment()->polygon.empty())
@@ -95,15 +164,15 @@ void SimulationCore::initParticles()
     {
         attempts++;
         
-        sf::Vector2f pos(distX(gen), distY(gen));
+        Vector2f pos(distX(gen), distY(gen));
 
         if (Physics::isPointInPolygon(pos, comp->polygon))
         {
             bool insideObstacle = false;
             for (const auto& obs : m_environment.getObstacles())
             {
-                sf::Vector2f closest = Physics::closestPointOnSegment(pos, obs.start, obs.end);
-                sf::Vector2f diff = pos - closest;
+                Vector2f closest = Physics::closestPointOnSegment(pos, obs.start, obs.end);
+                Vector2f diff = pos - closest;
                 float distSq = diff.x * diff.x + diff.y * diff.y;
                 if (distSq < m_config.particleRadius * m_config.particleRadius)
                 {
@@ -116,9 +185,9 @@ void SimulationCore::initParticles()
             {
                 float speed = distSpeed(gen);
                 float angle = distAngle(gen);
-                sf::Vector2f vel(speed * std::cos(angle), speed * std::sin(angle));
+                Vector2f vel(speed * std::cos(angle), speed * std::sin(angle));
 
-                m_particles.emplace_back(pos, vel, m_config.particleRadius, sf::Color(6, 182, 212));
+                m_particles.emplace_back(pos, vel, m_config.particleRadius);
             }
         }
     }
@@ -129,13 +198,13 @@ void SimulationCore::initParticles()
 
 
 // ==========================================
-// Simulation Implementation (GUI Wrapper)
+// Visualizer Implementation (SFML Interface)
 // ==========================================
 
-Simulation::Simulation()
-    : m_core(Config::loadFromFile("config.yaml"))
+Visualizer::Visualizer(Simulation& sim)
+    : m_sim(sim)
 {
-    const auto& config = m_core.getConfig();
+    const auto& config = m_sim.getConfig();
 
     // Initialize the window dynamically based on config
     m_window.create(sf::VideoMode({config.window.width, config.window.height}), config.window.title);
@@ -148,9 +217,9 @@ Simulation::Simulation()
     m_gridCursorPreview.setOutlineThickness(1.f);
 }
 
-void Simulation::run()
+void Visualizer::run()
 {
-    std::cout << "Simulation loop started." << std::endl;
+    std::cout << "Simulation loop started (GUI)." << std::endl;
 
     while (m_window.isOpen())
     {
@@ -162,7 +231,7 @@ void Simulation::run()
     std::cout << "Simulation loop ended." << std::endl;
 }
 
-void Simulation::processEvents()
+void Visualizer::processEvents()
 {
     while (const std::optional event = m_window.pollEvent())
     {
@@ -237,13 +306,13 @@ void Simulation::processEvents()
     }
 }
 
-void Simulation::update()
+void Visualizer::update()
 {
-    m_core.update();
+    m_sim.update();
 
-    const auto& config = m_core.getConfig();
-    const auto& env = m_core.getEnvironment();
-    const auto& particles = m_core.getParticles();
+    const auto& config = m_sim.getConfig();
+    const auto& env = m_sim.getEnvironment();
+    const auto& particles = m_sim.getParticles();
 
     int targetCount = env.getParticlesInTarget();
     static int lastTargetCount = -1;
@@ -255,17 +324,80 @@ void Simulation::update()
     }
 }
 
-void Simulation::render()
+void Visualizer::render()
 {
-    m_window.clear(m_core.getConfig().backgroundColor);
+    const auto& bg = m_sim.getConfig().backgroundColor;
+    m_window.clear(sf::Color(bg.r, bg.g, bg.b));
     
     drawGrid();
 
-    m_core.getEnvironment().draw(m_window);
-
-    for (const auto& p : m_core.getParticles())
+    // Draw Zones
+    for (const auto& zone : m_sim.getEnvironment().getZones())
     {
-        p.draw(m_window);
+        if (zone->getCompartment() && !zone->getCompartment()->polygon.empty())
+        {
+            sf::ConvexShape shape(zone->getCompartment()->polygon.size());
+            for (size_t i = 0; i < zone->getCompartment()->polygon.size(); ++i)
+            {
+                shape.setPoint(i, toSF(zone->getCompartment()->polygon[i]));
+            }
+
+            sf::Color fillColor, outlineColor;
+            if (zone->getType() == "spawn")
+            {
+                fillColor = sf::Color(59, 130, 246, 40);
+                outlineColor = sf::Color(59, 130, 246, 150);
+            }
+            else if (zone->getType() == "target")
+            {
+                fillColor = sf::Color(16, 185, 129, 40);
+                outlineColor = sf::Color(16, 185, 129, 150);
+            }
+            else
+            {
+                fillColor = sf::Color(148, 163, 184, 40);
+                outlineColor = sf::Color(148, 163, 184, 150);
+            }
+
+            shape.setFillColor(fillColor);
+            shape.setOutlineColor(outlineColor);
+            shape.setOutlineThickness(1.f);
+            m_window.draw(shape);
+        }
+    }
+
+    // Draw Obstacles
+    if (!m_sim.getEnvironment().getObstacles().empty())
+    {
+        sf::VertexArray wallLines(sf::PrimitiveType::Lines);
+        for (const auto& wall : m_sim.getEnvironment().getObstacles())
+        {
+            wallLines.append(sf::Vertex(toSF(wall.start), sf::Color::White));
+            wallLines.append(sf::Vertex(toSF(wall.end), sf::Color::White));
+        }
+        m_window.draw(wallLines);
+    }
+
+    // Draw Outer Boundary Walls
+    if (!m_sim.getEnvironment().getBoundarySegments().empty())
+    {
+        sf::VertexArray polyLines(sf::PrimitiveType::Lines);
+        for (const auto& seg : m_sim.getEnvironment().getBoundarySegments())
+        {
+            polyLines.append(sf::Vertex(toSF(seg.start), sf::Color::White));
+            polyLines.append(sf::Vertex(toSF(seg.end), sf::Color::White));
+        }
+        m_window.draw(polyLines);
+    }
+
+    // Draw Particles
+    for (const auto& p : m_sim.getParticles())
+    {
+        sf::CircleShape circle(p.getRadius());
+        circle.setPosition(toSF(p.getPosition()));
+        circle.setOrigin({p.getRadius(), p.getRadius()});
+        circle.setFillColor(sf::Color(6, 182, 212)); // Fixed cyan color
+        m_window.draw(circle);
     }
 
     m_window.draw(m_gridCursorPreview);
@@ -273,15 +405,15 @@ void Simulation::render()
     m_window.display();
 }
 
-sf::Vector2f Simulation::snapToGrid(sf::Vector2f position) const
+sf::Vector2f Visualizer::snapToGrid(sf::Vector2f position) const
 {
-    float gridSize = m_core.getConfig().gridSize;
+    float gridSize = m_sim.getConfig().gridSize;
     float x = std::floor(position.x / gridSize) * gridSize;
     float y = std::floor(position.y / gridSize) * gridSize;
     return {x, y};
 }
 
-void Simulation::drawGrid()
+void Visualizer::drawGrid()
 {
     sf::View view = m_window.getView();
     sf::Vector2f center = view.getCenter();
@@ -292,7 +424,7 @@ void Simulation::drawGrid()
     float top = center.y - size.y / 2.f;
     float bottom = center.y + size.y / 2.f;
 
-    float gridSize = m_core.getConfig().gridSize;
+    float gridSize = m_sim.getConfig().gridSize;
     float screenCellSize = gridSize * (m_window.getSize().x / size.x);
     if (screenCellSize < 4.f)
     {
@@ -341,7 +473,7 @@ void Simulation::drawGrid()
     m_window.draw(axes);
 }
 
-void Simulation::updateGridCursor(sf::Vector2i mousePosition)
+void Visualizer::updateGridCursor(sf::Vector2i mousePosition)
 {
     sf::Vector2f worldPos = m_window.mapPixelToCoords(mousePosition);
     sf::Vector2f snappedPos = snapToGrid(worldPos);

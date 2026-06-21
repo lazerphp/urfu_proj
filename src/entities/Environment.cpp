@@ -1,5 +1,4 @@
-#include "simulation/Environment.hpp"
-#include <SFML/Graphics/VertexArray.hpp>
+#include "entities/Environment.hpp"
 #include <iostream>
 
 Environment::Environment(const Config& config)
@@ -8,47 +7,16 @@ Environment::Environment(const Config& config)
     buildBoundarySegments(config);
 }
 
-void Environment::update(const std::vector<Particle>& particles)
-{
-    m_particlesInTarget = 0;
-    for (auto& zone : m_zones)
-    {
-        zone.update(particles);
-        if (zone.getType() == "target")
-        {
-            m_particlesInTarget = zone.getParticleCount();
-        }
-    }
-}
-
-void Environment::draw(sf::RenderWindow& window) const
+int Environment::getParticlesInTarget() const
 {
     for (const auto& zone : m_zones)
     {
-        zone.draw(window);
-    }
-
-    if (!m_obstacles.empty())
-    {
-        sf::VertexArray wallLines(sf::PrimitiveType::Lines);
-        for (const auto& wall : m_obstacles)
+        if (zone->getType() == "target")
         {
-            wallLines.append(sf::Vertex(wall.start, sf::Color::White));
-            wallLines.append(sf::Vertex(wall.end, sf::Color::White));
+            return zone->getParticleCount();
         }
-        window.draw(wallLines);
     }
-
-    if (!m_boundarySegments.empty())
-    {
-        sf::VertexArray polyLines(sf::PrimitiveType::Lines);
-        for (const auto& seg : m_boundarySegments)
-        {
-            polyLines.append(sf::Vertex(seg.start, sf::Color::White));
-            polyLines.append(sf::Vertex(seg.end, sf::Color::White));
-        }
-        window.draw(polyLines);
-    }
+    return 0;
 }
 
 void Environment::buildBoundarySegments(const Config& config)
@@ -70,21 +38,32 @@ void Environment::buildBoundarySegments(const Config& config)
         }
         if (matchedComp)
         {
-            m_zones.emplace_back(zoneConf.type, matchedComp);
+            if (zoneConf.type == "target")
+            {
+                m_zones.push_back(std::make_unique<TargetZone>(matchedComp));
+            }
+            else if (zoneConf.type == "spawn")
+            {
+                m_zones.push_back(std::make_unique<SpawnZone>(matchedComp));
+            }
+            else
+            {
+                m_zones.push_back(std::make_unique<Zone>(zoneConf.type, matchedComp));
+            }
         }
     }
 
     for (auto& zone : m_zones)
     {
-        if (zone.getType() == "spawn")
+        if (zone->getType() == "spawn")
         {
-            m_spawnZonePtr = &zone;
+            m_spawnZonePtr = zone.get();
         }
     }
 
     struct SegmentInfo {
-        sf::Vector2f start;
-        sf::Vector2f end;
+        Vector2f start;
+        Vector2f end;
         bool isShared = false;
     };
     std::vector<SegmentInfo> allSegments;
@@ -102,7 +81,7 @@ void Environment::buildBoundarySegments(const Config& config)
         }
     }
 
-    auto approxEqual = [](sf::Vector2f p1, sf::Vector2f p2) {
+    auto approxEqual = [](Vector2f p1, Vector2f p2) {
         float dx = p1.x - p2.x;
         float dy = p1.y - p2.y;
         return (dx * dx + dy * dy) < 0.1f;

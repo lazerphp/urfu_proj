@@ -33,9 +33,9 @@ add_executable(sfml_app
     src/main.cpp 
     src/core/Simulation.cpp
     src/core/Config.cpp
-    src/simulation/Particle.cpp
-    src/simulation/Zone.cpp
-    src/simulation/Environment.cpp
+    src/entities/Particle.cpp
+    src/entities/Zone.cpp
+    src/entities/Environment.cpp
     src/physics/Physics.cpp
 )
 

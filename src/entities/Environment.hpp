@@ -1,15 +1,14 @@
 #pragma once
-#include <SFML/Graphics/RenderWindow.hpp>
-#include <SFML/System/Vector2.hpp>
+#include "core/Types.hpp"
 #include <vector>
 #include "core/Config.hpp"
-#include "simulation/Zone.hpp"
-#include "simulation/Particle.hpp"
+#include "entities/Zone.hpp"
+#include <memory>
 
 struct WallSegment
 {
-    sf::Vector2f start;
-    sf::Vector2f end;
+    Vector2f start;
+    Vector2f end;
 };
 
 class Environment
@@ -17,13 +16,14 @@ class Environment
 public:
     Environment(const Config& config);
 
-    void update(const std::vector<Particle>& particles);
-    void draw(sf::RenderWindow& window) const;
-
     const std::vector<WallSegment>& getBoundarySegments() const { return m_boundarySegments; }
     const std::vector<Config::ObstacleSegment>& getObstacles() const { return m_obstacles; }
     const Zone* getSpawnZone() const { return m_spawnZonePtr; }
-    int getParticlesInTarget() const { return m_particlesInTarget; }
+    
+    std::vector<std::unique_ptr<Zone>>& getZones() { return m_zones; }
+    const std::vector<std::unique_ptr<Zone>>& getZones() const { return m_zones; }
+
+    int getParticlesInTarget() const;
 
 private:
     void buildBoundarySegments(const Config& config);
@@ -31,7 +31,6 @@ private:
 private:
     std::vector<WallSegment> m_boundarySegments;
     std::vector<Config::ObstacleSegment> m_obstacles;
-    std::vector<Zone> m_zones;
+    std::vector<std::unique_ptr<Zone>> m_zones;
     const Zone* m_spawnZonePtr{nullptr};
-    int m_particlesInTarget{0};
 };

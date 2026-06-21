@@ -1,16 +1,18 @@
 #pragma once
-#include <SFML/System/Vector2.hpp>
+#include "core/Types.hpp"
 #include <vector>
-#include "simulation/Particle.hpp"
+#include "entities/Particle.hpp"
 #include "core/Config.hpp"
 
 namespace Physics
 {
-    bool isPointInPolygon(sf::Vector2f p, const std::vector<sf::Vector2f>& polygon);
+    bool isPointInPolygon(Vector2f p, const std::vector<Vector2f>& polygon);
     
-    bool isPointInCorridor(sf::Vector2f p, const std::vector<Config::Compartment>& compartments);
+    bool isPointInCorridor(Vector2f p, const std::vector<Config::Compartment>& compartments);
     
-    sf::Vector2f closestPointOnSegment(sf::Vector2f p, sf::Vector2f a, sf::Vector2f b);
+    Vector2f closestPointOnSegment(Vector2f p, Vector2f a, Vector2f b);
     
-    void resolveCollisionWithSegment(Particle& p, sf::Vector2f a, sf::Vector2f b, float radius, bool isBoundary, const std::vector<Config::Compartment>& compartments);
+    void resolveCollisionWithSegment(Particle& p, Vector2f a, Vector2f b, float radius, bool isBoundary, const std::vector<Config::Compartment>& compartments);
+    
+    void resolveCollisionWithZone(Particle& p, const std::vector<Vector2f>& polygon, float radius, bool blockEntry);
 }

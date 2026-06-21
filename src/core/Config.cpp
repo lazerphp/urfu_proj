@@ -49,11 +49,9 @@ Config Config::loadFromFile(const std::string& filepath)
             auto colorNode = root["background_color"];
             if (colorNode["r"] && colorNode["g"] && colorNode["b"])
             {
-                config.backgroundColor = sf::Color(
-                    static_cast<std::uint8_t>(colorNode["r"].as<int>()),
-                    static_cast<std::uint8_t>(colorNode["g"].as<int>()),
-                    static_cast<std::uint8_t>(colorNode["b"].as<int>())
-                );
+                config.backgroundColor.r = static_cast<std::uint8_t>(colorNode["r"].as<int>());
+                config.backgroundColor.g = static_cast<std::uint8_t>(colorNode["g"].as<int>());
+                config.backgroundColor.b = static_cast<std::uint8_t>(colorNode["b"].as<int>());
             }
         }
 

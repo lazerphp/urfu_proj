@@ -5,7 +5,7 @@
 namespace Physics
 {
 
-bool isPointInPolygon(sf::Vector2f p, const std::vector<sf::Vector2f>& polygon)
+bool isPointInPolygon(Vector2f p, const std::vector<Vector2f>& polygon)
 {
     int n = polygon.size();
     if (n < 3) return false;
@@ -21,7 +21,7 @@ bool isPointInPolygon(sf::Vector2f p, const std::vector<sf::Vector2f>& polygon)
     return inside;
 }
 
-bool isPointInCorridor(sf::Vector2f p, const std::vector<Config::Compartment>& compartments)
+bool isPointInCorridor(Vector2f p, const std::vector<Config::Compartment>& compartments)
 {
     for (const auto& comp : compartments)
     {
@@ -33,10 +33,10 @@ bool isPointInCorridor(sf::Vector2f p, const std::vector<Config::Compartment>& c
     return false;
 }
 
-sf::Vector2f closestPointOnSegment(sf::Vector2f p, sf::Vector2f a, sf::Vector2f b)
+Vector2f closestPointOnSegment(Vector2f p, Vector2f a, Vector2f b)
 {
-    sf::Vector2f ab = b - a;
-    sf::Vector2f ap = p - a;
+    Vector2f ab = b - a;
+    Vector2f ap = p - a;
     float abLenSq = ab.x * ab.x + ab.y * ab.y;
     if (abLenSq < 0.0001f) return a;
     
@@ -45,23 +45,23 @@ sf::Vector2f closestPointOnSegment(sf::Vector2f p, sf::Vector2f a, sf::Vector2f 
     return a + t * ab;
 }
 
-void resolveCollisionWithSegment(Particle& p, sf::Vector2f a, sf::Vector2f b, float radius, bool isBoundary, const std::vector<Config::Compartment>& compartments)
+void resolveCollisionWithSegment(Particle& p, Vector2f a, Vector2f b, float radius, bool isBoundary, const std::vector<Config::Compartment>& compartments)
 {
-    sf::Vector2f pos = p.getPosition();
-    sf::Vector2f vel = p.getVelocity();
-    sf::Vector2f closest = closestPointOnSegment(pos, a, b);
-    sf::Vector2f diff = pos - closest;
+    Vector2f pos = p.getPosition();
+    Vector2f vel = p.getVelocity();
+    Vector2f closest = closestPointOnSegment(pos, a, b);
+    Vector2f diff = pos - closest;
     float distSq = diff.x * diff.x + diff.y * diff.y;
     float rSq = radius * radius;
     
     if (distSq < rSq && distSq > 0.00001f)
     {
         float dist = std::sqrt(distSq);
-        sf::Vector2f normal = diff / dist;
+        Vector2f normal = diff / dist;
         
         if (isBoundary)
         {
-            sf::Vector2f testPos = closest + normal * 0.1f;
+            Vector2f testPos = closest + normal * 0.1f;
             if (!isPointInCorridor(testPos, compartments))
             {
                 normal = -normal;
@@ -74,6 +74,57 @@ void resolveCollisionWithSegment(Particle& p, sf::Vector2f a, sf::Vector2f b, fl
         if (vn < 0.f)
         {
             p.setVelocity(vel - 2.f * vn * normal);
+        }
+    }
+}
+
+void resolveCollisionWithZone(Particle& p, const std::vector<Vector2f>& polygon, float radius, bool blockEntry)
+{
+    int n = polygon.size();
+    if (n < 3) return;
+
+    for (int i = 0; i < n; ++i)
+    {
+        Vector2f a = polygon[i];
+        Vector2f b = polygon[(i + 1) % n];
+
+        Vector2f pos = p.getPosition();
+        Vector2f vel = p.getVelocity();
+        Vector2f closest = closestPointOnSegment(pos, a, b);
+        Vector2f diff = pos - closest;
+        float distSq = diff.x * diff.x + diff.y * diff.y;
+        float rSq = radius * radius;
+
+        if (distSq < rSq && distSq > 0.00001f)
+        {
+            float dist = std::sqrt(distSq);
+            Vector2f normal = diff / dist;
+
+            Vector2f testPos = closest + normal * 0.1f;
+            bool testInside = isPointInPolygon(testPos, polygon);
+
+            if (blockEntry)
+            {
+                if (testInside)
+                {
+                    normal = -normal;
+                }
+            }
+            else // blockExit
+            {
+                if (!testInside)
+                {
+                    normal = -normal;
+                }
+            }
+
+            p.setPosition(closest + normal * radius);
+
+            float vn = vel.x * normal.x + vel.y * normal.y;
+            if (vn < 0.f)
+            {
+                p.setVelocity(vel - 2.f * vn * normal);
+            }
         }
     }
 }
