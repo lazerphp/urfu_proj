@@ -6,7 +6,7 @@ SpawnZone::SpawnZone(float x, float y, float width, float height, bool enabled)
     , m_y(y)
     , m_width(width)
     , m_height(height)
-    , m_enabled(enabled)
+    , m_enabled(enabled)  // Зачем
 {
 }
 

@@ -8,14 +8,14 @@ dt: 0.01  # Fixed time step for physics (in seconds)
 physics_steps_per_frame: 1  # How many physics updates to perform per render frame
 
 # Particle settings
-particle_count: 500  # Number of ideal gas particles
+particle_count: 50  # Number of ideal gas particles
 particle_radius: 3.0  # Radius of each particle (for drawing and collision)
 
 # Window settings
 window:
-  width: 800
-  height: 600
-  title: "Physics Simulation (Spawn Zone)"
+  width: 1000
+  height: 920
+  title: "Physics Simulation (Custom Boundary Shape)"
 
 # Background color (RGB, values 0-255)
 background_color:
@@ -25,25 +25,33 @@ background_color:
 
 # Physical boundary elements
 simulation_elements:
-  # Outer boundary corridor (closed polygon where particles are contained)
+  # Closed polygon approximating the requested stepped shape
   boundary_polygon:
-    - {x: 100, y: 100}
-    - {x: 700, y: 100}
-    - {x: 700, y: 500}
-    - {x: 100, y: 500}
+    - {x: 100, y: 60}
+    - {x: 280, y: 60}
+    - {x: 280, y: 140}
+    - {x: 800, y: 140}
+    - {x: 800, y: 480}
+    - {x: 460, y: 480}
+    - {x: 460, y: 620}
+    - {x: 620, y: 620}
+    - {x: 620, y: 840}
+    - {x: 200, y: 840}
+    - {x: 200, y: 620}
+    - {x: 360, y: 620}
+    - {x: 360, y: 380}
+    - {x: 700, y: 380}
+    - {x: 700, y: 240}
+    - {x: 280, y: 240}
+    - {x: 280, y: 320}
+    - {x: 100, y: 320}
 
   # Spawn zone (where particles are initially generated)
   spawn_zone:
-    x: 150
-    y: 150
-    width: 120
-    height: 120
+    x: 120
+    y: 80
+    width: 140
+    height: 220
 
   # Internal obstacles (independent wall segments that particles must avoid)
-  obstacles:
-    # A wall obstacle in the middle
-    - start: {x: 350, y: 300}
-      end: {x: 550, y: 300}
-    # An angled obstacle
-    - start: {x: 450, y: 200}
-      end: {x: 450, y: 400}
+  obstacles: []

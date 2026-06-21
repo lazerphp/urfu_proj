@@ -16,7 +16,7 @@ Game::Game()
     m_gridCursorPreview.setFillColor(sf::Color(16, 185, 129, 80)); // Emerald green, semi-transparent
     m_gridCursorPreview.setOutlineColor(sf::Color(16, 185, 129, 200));
     m_gridCursorPreview.setOutlineThickness(1.f);
-    m_gridCursorPreview.setOrigin({m_config.gridSize / 2.f, m_config.gridSize / 2.f});
+    // m_gridCursorPreview.setOrigin({m_config.gridSize / 2.f, m_config.gridSize / 2.f});
 
     initParticles();
 }
@@ -199,8 +199,8 @@ void Game::render()
 
 sf::Vector2f Game::snapToGrid(sf::Vector2f position) const
 {
-    float x = std::round(position.x / m_config.gridSize) * m_config.gridSize;
-    float y = std::round(position.y / m_config.gridSize) * m_config.gridSize;
+    float x = std::floor(position.x / m_config.gridSize) * m_config.gridSize;
+    float y = std::floor(position.y / m_config.gridSize) * m_config.gridSize;
     return {x, y};
 }
 
