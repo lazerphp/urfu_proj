@@ -11,6 +11,8 @@ struct WallSegment
     Vector2f end;
 };
 
+class TargetZone;
+
 class Environment
 {
 public:
@@ -18,12 +20,11 @@ public:
 
     const std::vector<WallSegment>& getBoundarySegments() const { return m_boundarySegments; }
     const std::vector<Config::ObstacleSegment>& getObstacles() const { return m_obstacles; }
-    const Zone* getSpawnZone() const { return m_spawnZonePtr; }
     
     std::vector<std::unique_ptr<Zone>>& getZones() { return m_zones; }
     const std::vector<std::unique_ptr<Zone>>& getZones() const { return m_zones; }
 
-    int getParticlesInTarget() const;
+    const TargetZone* getTargetZone() const { return m_targetZonePtr; }
 
 private:
     void buildBoundarySegments(const Config& config);
@@ -32,5 +33,5 @@ private:
     std::vector<WallSegment> m_boundarySegments;
     std::vector<Config::ObstacleSegment> m_obstacles;
     std::vector<std::unique_ptr<Zone>> m_zones;
-    const Zone* m_spawnZonePtr{nullptr};
+    TargetZone* m_targetZonePtr{nullptr};
 };

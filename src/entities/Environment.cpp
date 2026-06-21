@@ -7,23 +7,11 @@ Environment::Environment(const Config& config)
     buildBoundarySegments(config);
 }
 
-int Environment::getParticlesInTarget() const
-{
-    for (const auto& zone : m_zones)
-    {
-        if (zone->getType() == "target")
-        {
-            return zone->getParticleCount();
-        }
-    }
-    return 0;
-}
-
 void Environment::buildBoundarySegments(const Config& config)
 {
     m_boundarySegments.clear();
     m_zones.clear();
-    m_spawnZonePtr = nullptr;
+    m_targetZonePtr = nullptr;
 
     for (const auto& zoneConf : config.zones)
     {
@@ -40,7 +28,9 @@ void Environment::buildBoundarySegments(const Config& config)
         {
             if (zoneConf.type == "target")
             {
-                m_zones.push_back(std::make_unique<TargetZone>(matchedComp));
+                auto targetZone = std::make_unique<TargetZone>(matchedComp);
+                m_targetZonePtr = targetZone.get();
+                m_zones.push_back(std::move(targetZone));
             }
             else if (zoneConf.type == "spawn")
             {
@@ -50,14 +40,6 @@ void Environment::buildBoundarySegments(const Config& config)
             {
                 m_zones.push_back(std::make_unique<Zone>(zoneConf.type, matchedComp));
             }
-        }
-    }
-
-    for (auto& zone : m_zones)
-    {
-        if (zone->getType() == "spawn")
-        {
-            m_spawnZonePtr = zone.get();
         }
     }
 

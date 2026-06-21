@@ -17,6 +17,14 @@ void SpawnZone::processParticles(std::vector<Particle>& particles)
     }
 }
 
+void SpawnZone::resolvePhysics(Particle& p, float radius)
+{
+    if (p.hasExitedSpawnZone() && getCompartment())
+    {
+        Physics::resolveCollisionWithZone(p, getCompartment()->polygon, radius, true);
+    }
+}
+
 void TargetZone::processParticles(std::vector<Particle>& particles)
 {
     m_particleCount = 0;
@@ -24,8 +32,7 @@ void TargetZone::processParticles(std::vector<Particle>& particles)
 
     for (auto& p : particles)
     {
-        bool inside = Physics::isPointInPolygon(p.getPosition(), getCompartment()->polygon);
-        if (inside)
+        if (Physics::isPointInPolygon(p.getPosition(), getCompartment()->polygon))
         {
             m_particleCount++;
             if (!p.hasEnteredTargetZone())
@@ -33,5 +40,13 @@ void TargetZone::processParticles(std::vector<Particle>& particles)
                 p.setEnteredTargetZone(true);
             }
         }
+    }
+}
+
+void TargetZone::resolvePhysics(Particle& p, float radius)
+{
+    if (p.hasEnteredTargetZone() && getCompartment())
+    {
+        Physics::resolveCollisionWithZone(p, getCompartment()->polygon, radius, false);
     }
 }

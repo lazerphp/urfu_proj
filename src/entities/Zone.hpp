@@ -16,7 +16,7 @@ public:
     const Config::Compartment* getCompartment() const { return m_compartment; }
 
     virtual void processParticles(std::vector<Particle>& particles) {}
-    virtual int getParticleCount() const { return 0; }
+    virtual void resolvePhysics(Particle& p, float radius) {}
 
 private:
     std::string m_type;
@@ -30,6 +30,7 @@ public:
         : Zone("spawn", compartment) {}
 
     void processParticles(std::vector<Particle>& particles) override;
+    void resolvePhysics(Particle& p, float radius) override;
 };
 
 class TargetZone : public Zone
@@ -39,7 +40,8 @@ public:
         : Zone("target", compartment) {}
 
     void processParticles(std::vector<Particle>& particles) override;
-    int getParticleCount() const override { return m_particleCount; }
+    void resolvePhysics(Particle& p, float radius) override;
+    int getParticleCount() const { return m_particleCount; }
 
 private:
     int m_particleCount{0};
