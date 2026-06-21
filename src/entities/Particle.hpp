@@ -23,9 +23,13 @@ public:
     bool hasEnteredTargetZone() const { return m_hasEnteredTarget; }
     void setEnteredTargetZone(bool val) { m_hasEnteredTarget = val; }
 
+    Vector2f getAcceleration() const { return m_acceleration; }
+    void setAcceleration(Vector2f acc) { m_acceleration = acc; }
+
 private:
     Vector2f m_position;
     Vector2f m_velocity;
+    Vector2f m_acceleration{0.f, 0.f};
     float m_radius;
     bool m_hasExitedSpawn{false};
     bool m_hasEnteredTarget{false};

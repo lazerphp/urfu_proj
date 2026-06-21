@@ -129,4 +129,54 @@ void resolveCollisionWithZone(Particle& p, const std::vector<Vector2f>& polygon,
     }
 }
 
+Vector2f calculateLJForce(const Vector2f& r_vec, float epsilon, float sigma, float cutoff)
+{
+    float rSq = r_vec.x * r_vec.x + r_vec.y * r_vec.y;
+    if (rSq < 0.0001f) return {0.f, 0.f};
+
+    float r = std::sqrt(rSq);
+    if (r > cutoff) return {0.f, 0.f};
+
+    // Cap the minimum distance at 0.5 * sigma to prevent division by zero or extreme forces
+    float effective_r = std::max(r, 0.5f * sigma);
+    float s_r = sigma / effective_r;
+    float s_r2 = s_r * s_r;
+    float s_r6 = s_r2 * s_r2 * s_r2;
+    float s_r12 = s_r6 * s_r6;
+
+    // F_ij = (24 * epsilon / r^2) * (2 * (sigma/r)^12 - (sigma/r)^6) * r_vec
+    // When effective_r < 2^(1/6) * sigma, the force factor is positive, yielding a repulsive force (pointing in direction of r_vec).
+    float forceFactor = (24.f * epsilon / (effective_r * effective_r)) * (2.f * s_r12 - s_r6);
+    return r_vec * forceFactor;
+}
+
+Vector2f calculateRadialFieldAcc(const Vector2f& p, const Vector2f& center, float intensity, float minRadius)
+{
+    Vector2f d_vec = p - center;
+    float dSq = d_vec.x * d_vec.x + d_vec.y * d_vec.y;
+    if (dSq < 0.0001f) return {0.f, 0.f};
+
+    float d = std::sqrt(dSq);
+    float effective_d = std::max(d, minRadius);
+
+    // a = (intensity / d^3) * d_vec
+    float factor = intensity / (effective_d * effective_d * effective_d);
+    return d_vec * factor;
+}
+
+Vector2f calculateSegmentFieldAcc(const Vector2f& p, const Vector2f& a, const Vector2f& b, float intensity)
+{
+    Vector2f closest = closestPointOnSegment(p, a, b);
+    Vector2f d_vec = p - closest;
+    float dSq = d_vec.x * d_vec.x + d_vec.y * d_vec.y;
+    if (dSq < 0.0001f) return {0.f, 0.f};
+
+    float d = std::sqrt(dSq);
+    float effective_d = std::max(d, 5.0f); // 5.0f threshold prevents singularity at segment contact
+
+    // a = (intensity / d^2) * d_vec
+    float factor = intensity / (effective_d * effective_d);
+    return d_vec * factor;
+}
+
 } // namespace Physics

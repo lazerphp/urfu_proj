@@ -4,24 +4,31 @@
 grid_size: 20.0  # Distance between grid lines (in virtual pixels)
 
 # Simulation Timing settings
-dt: 0.01  # Fixed time step for physics (in seconds)
-physics_steps_per_frame: 1  # How many physics updates to perform per render frame
+dt: 0.001  # Fixed time step for physics (in seconds) - smaller dt improves stability of LJ potential
+physics_steps_per_frame: 10  # Perform 10 sub-steps per frame to maintain overall speed
 
 # Particle settings
 particle_count: 50  # Number of ideal gas particles
 particle_radius: 3.0  # Radius of each particle (for drawing and collision)
 
+# Lennard-Jones (6-12) potential settings for particle-particle interaction
+lj_enabled: true
+lj_epsilon: 50.0  # Well depth (strength of force interaction)
+lj_sigma: 6.0     # Particle interaction diameter (typically 2 * particle_radius)
+lj_cutoff: 15.0   # Cutoff radius for interaction (particles further than this don't interact)
+lj_max_acceleration: 20000.0  # Maximum acceleration limit per particle (stability cap)
+
 # Window settings
 window:
-  width: 1000
-  height: 920
-  title: "Physics Simulation (Custom Boundary Shape)"
+  width: 800
+  height: 600
+  title: "Physics Simulation"
 
 # Background color (RGB, values 0-255)
 background_color:
-  r: 15
-  g: 23
-  b: 42
+  r: 12
+  g: 14
+  b: 18
 
 # Physical boundary elements
 simulation_elements:
@@ -80,3 +87,27 @@ simulation_elements:
 
   # Internal obstacles (independent wall segments that particles must avoid)
   obstacles: []
+
+  # External force fields acting on all particles (superposition of acceleration fields)
+  radial_fields: []
+
+  segment_fields:
+    # 1. Поворот в конце top_channel (притягивает частицы вправо, помогая войти в right_channel)
+    - start: {x: 800, y: 140}
+      end: {x: 800, y: 240}
+      intensity: -3000.0
+
+    # 2. Поворот внизу right_channel (притягивает частицы вниз, помогая войти в middle_channel)
+    - start: {x: 700, y: 480}
+      end: {x: 800, y: 480}
+      intensity: -3000.0
+
+    # 3. Поворот в конце middle_channel (притягивает частицы влево, помогая зайти в central_channel)
+    - start: {x: 360, y: 380}
+      end: {x: 360, y: 480}
+      intensity: -3000.0
+
+    # 4. Дно TargetZone в end_reservoir (мощно притягивает и осаждает частицы на самом дне)
+    - start: {x: 200, y: 840}
+      end: {x: 620, y: 840}
+      intensity: -4000.0

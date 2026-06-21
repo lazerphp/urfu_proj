@@ -36,6 +36,31 @@ Config Config::loadFromFile(const std::string& filepath)
             config.particleRadius = root["particle_radius"].as<float>();
         }
 
+        if (root["lj_enabled"])
+        {
+            config.ljEnabled = root["lj_enabled"].as<bool>();
+        }
+
+        if (root["lj_epsilon"])
+        {
+            config.ljEpsilon = root["lj_epsilon"].as<float>();
+        }
+
+        if (root["lj_sigma"])
+        {
+            config.ljSigma = root["lj_sigma"].as<float>();
+        }
+
+        if (root["lj_cutoff"])
+        {
+            config.ljCutoff = root["lj_cutoff"].as<float>();
+        }
+
+        if (root["lj_max_acceleration"])
+        {
+            config.ljMaxAcceleration = root["lj_max_acceleration"].as<float>();
+        }
+
         if (root["window"])
         {
             auto windowNode = root["window"];
@@ -115,6 +140,50 @@ Config Config::loadFromFile(const std::string& filepath)
                                 {startNode["x"].as<float>(), startNode["y"].as<float>()},
                                 {endNode["x"].as<float>(), endNode["y"].as<float>()}
                             });
+                        }
+                    }
+                }
+            }
+
+            if (elementsNode["radial_fields"])
+            {
+                auto fieldsNode = elementsNode["radial_fields"];
+                for (const auto& fieldNode : fieldsNode)
+                {
+                    if (fieldNode["center"] && fieldNode["intensity"])
+                    {
+                        auto centerNode = fieldNode["center"];
+                        if (centerNode["x"] && centerNode["y"])
+                        {
+                            Config::RadialField field;
+                            field.center = {centerNode["x"].as<float>(), centerNode["y"].as<float>()};
+                            field.intensity = fieldNode["intensity"].as<float>();
+                            if (fieldNode["min_radius"])
+                            {
+                                field.minRadius = fieldNode["min_radius"].as<float>();
+                            }
+                            config.radialFields.push_back(field);
+                        }
+                    }
+                }
+            }
+
+            if (elementsNode["segment_fields"])
+            {
+                auto fieldsNode = elementsNode["segment_fields"];
+                for (const auto& fieldNode : fieldsNode)
+                {
+                    if (fieldNode["start"] && fieldNode["end"] && fieldNode["intensity"])
+                    {
+                        auto startNode = fieldNode["start"];
+                        auto endNode = fieldNode["end"];
+                        if (startNode["x"] && startNode["y"] && endNode["x"] && endNode["y"])
+                        {
+                            Config::SegmentField field;
+                            field.start = {startNode["x"].as<float>(), startNode["y"].as<float>()};
+                            field.end = {endNode["x"].as<float>(), endNode["y"].as<float>()};
+                            field.intensity = fieldNode["intensity"].as<float>();
+                            config.segmentFields.push_back(field);
                         }
                     }
                 }

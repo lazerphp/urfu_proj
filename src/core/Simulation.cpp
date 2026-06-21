@@ -381,13 +381,13 @@ void Visualizer::render()
             sf::Color fillColor, outlineColor;
             if (zone->getType() == "spawn")
             {
-                fillColor = sf::Color(59, 130, 246, 40);
-                outlineColor = sf::Color(59, 130, 246, 150);
+                fillColor = sf::Color(150, 210, 40, 40);
+                outlineColor = sf::Color(150, 210, 40, 150);
             }
             else if (zone->getType() == "target")
             {
-                fillColor = sf::Color(16, 185, 129, 40);
-                outlineColor = sf::Color(16, 185, 129, 150);
+                fillColor = sf::Color(220, 50, 50, 40);
+                outlineColor = sf::Color(220, 50, 50, 150);
             }
             else
             {
@@ -405,25 +405,209 @@ void Visualizer::render()
     // Draw Obstacles
     if (!m_sim.getEnvironment().getObstacles().empty())
     {
-        sf::VertexArray wallLines(sf::PrimitiveType::Lines);
         for (const auto& wall : m_sim.getEnvironment().getObstacles())
         {
-            wallLines.append(sf::Vertex(toSF(wall.start), sf::Color::White));
-            wallLines.append(sf::Vertex(toSF(wall.end), sf::Color::White));
+            sf::Vector2f start = toSF(wall.start);
+            sf::Vector2f end = toSF(wall.end);
+            sf::Vector2f dir = end - start;
+            float length = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+            if (length < 0.001f) continue;
+
+            sf::RectangleShape lineShape(sf::Vector2f(length, 4.0f));
+            lineShape.setOrigin({0.f, 2.0f});
+            lineShape.setPosition(start);
+            lineShape.setRotation(sf::radians(std::atan2(dir.y, dir.x)));
+            lineShape.setFillColor(sf::Color::White);
+            m_window.draw(lineShape);
         }
-        m_window.draw(wallLines);
+    }
+    drawGrid();
+
+    // Draw Radial Fields (Point Sources) with smooth concentric-band volumetric glow
+    for (const auto& field : m_sim.getConfig().radialFields)
+    {
+        // Ambient reach: larger spread but very pale/low opacity (maxAlpha 110.f) for subtle decay
+        float maxRadius = std::min(250.f, std::sqrt(std::abs(field.intensity)) * 3.5f);
+        if (maxRadius < 10.f) maxRadius = 70.f;
+
+        // Custom colors: attractive amber/yellow or repulsive sky-blue
+        sf::Color baseColor = (field.intensity < 0.f) ? sf::Color(255, 180, 70) : sf::Color(80, 190, 255);
+
+        // Smooth bell-curve function: f(x) = (1 - x^2)^2. Samples boundaries to create seamless transition bands
+        const int numBands = 8;
+        float x[numBands] = { 0.0f, 0.15f, 0.3f, 0.45f, 0.6f, 0.75f, 0.9f, 1.0f };
+        float alphaVal[numBands];
+        float maxAlpha = 110.f;
+        for (int i = 0; i < numBands; ++i)
+        {
+            float val = 1.f - x[i] * x[i];
+            alphaVal[i] = maxAlpha * val * val;
+        }
+
+        const int numSegments = 32;
+        sf::Vector2f center = toSF(field.center);
+
+        // 1. Center disc (from radius 0 to x[1]*maxRadius)
+        {
+            sf::Color c0 = baseColor; c0.a = static_cast<unsigned char>(alphaVal[0]);
+            sf::Color c1 = baseColor; c1.a = static_cast<unsigned char>(alphaVal[1]);
+            float r1 = maxRadius * x[1];
+
+            sf::VertexArray fan(sf::PrimitiveType::TriangleFan, numSegments + 2);
+            fan[0] = sf::Vertex(center, c0);
+            for (int i = 0; i <= numSegments; ++i)
+            {
+                float angle = (i * 2.f * 3.14159265f) / numSegments;
+                sf::Vector2f pos(
+                    center.x + r1 * std::cos(angle),
+                    center.y + r1 * std::sin(angle)
+                );
+                fan[i + 1] = sf::Vertex(pos, c1);
+            }
+            m_window.draw(fan);
+        }
+
+        // 2. Concentric ring bands (from band j to j+1)
+        for (int j = 1; j < numBands - 1; ++j)
+        {
+            sf::Color c_j = baseColor; c_j.a = static_cast<unsigned char>(alphaVal[j]);
+            sf::Color c_next = baseColor; c_next.a = static_cast<unsigned char>(alphaVal[j+1]);
+            float r_j = maxRadius * x[j];
+            float r_next = maxRadius * x[j+1];
+
+            sf::VertexArray strip(sf::PrimitiveType::TriangleStrip, (numSegments + 1) * 2);
+            for (int i = 0; i <= numSegments; ++i)
+            {
+                float angle = (i * 2.f * 3.14159265f) / numSegments;
+                float cosA = std::cos(angle);
+                float sinA = std::sin(angle);
+
+                sf::Vector2f pos_in(center.x + r_j * cosA, center.y + r_j * sinA);
+                sf::Vector2f pos_out(center.x + r_next * cosA, center.y + r_next * sinA);
+
+                strip[2 * i] = sf::Vertex(pos_in, c_j);
+                strip[2 * i + 1] = sf::Vertex(pos_out, c_next);
+            }
+            m_window.draw(strip);
+        }
+    }
+
+    // Draw Segment Fields (Capacitor Plates) with smooth concentric-band volumetric capsule glow
+    for (const auto& field : m_sim.getConfig().segmentFields)
+    {
+        sf::Vector2f a = toSF(field.start);
+        sf::Vector2f b = toSF(field.end);
+        sf::Vector2f dir = b - a;
+        float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+        if (len < 0.001f) continue;
+
+        sf::Vector2f tangent = dir / len;
+        sf::Vector2f normal(-tangent.y, tangent.x);
+
+        // Ambient reach: larger spread but very pale/low opacity (maxAlpha 90.f) for subtle decay
+        float maxWidth = std::min(150.f, std::sqrt(std::abs(field.intensity)) * 2.5f);
+        if (maxWidth < 5.f) maxWidth = 50.f;
+
+        // Custom colors: attractive amber/yellow or repulsive sky-blue
+        sf::Color baseColor = (field.intensity < 0.f) ? sf::Color(255, 180, 70) : sf::Color(80, 190, 255);
+
+        // Smooth bell-curve function: f(x) = (1 - x^2)^2. Samples boundaries to create seamless transition bands
+        const int numBands = 8;
+        float x[numBands] = { 0.0f, 0.15f, 0.3f, 0.45f, 0.6f, 0.75f, 0.9f, 1.0f };
+        float alphaVal[numBands];
+        float maxAlpha = 90.f;
+        for (int i = 0; i < numBands; ++i)
+        {
+            float val = 1.f - x[i] * x[i];
+            alphaVal[i] = maxAlpha * val * val;
+        }
+
+        const int numCapSegments = 24;
+        float baseAngle = std::atan2(tangent.y, tangent.x);
+
+        for (int j = 0; j < numBands - 1; ++j)
+        {
+            sf::Color c_in = baseColor; c_in.a = static_cast<unsigned char>(alphaVal[j]);
+            sf::Color c_out = baseColor; c_out.a = static_cast<unsigned char>(alphaVal[j+1]);
+            float w_in = maxWidth * x[j];
+            float w_out = maxWidth * x[j+1];
+
+            // A. Left-side body strip for this band (zero overlap)
+            sf::VertexArray leftStrip(sf::PrimitiveType::TriangleStrip, 4);
+            leftStrip[0] = sf::Vertex(a + normal * w_in, c_in);
+            leftStrip[1] = sf::Vertex(a + normal * w_out, c_out);
+            leftStrip[2] = sf::Vertex(b + normal * w_in, c_in);
+            leftStrip[3] = sf::Vertex(b + normal * w_out, c_out);
+            m_window.draw(leftStrip);
+
+            // B. Right-side body strip for this band (zero overlap)
+            sf::VertexArray rightStrip(sf::PrimitiveType::TriangleStrip, 4);
+            rightStrip[0] = sf::Vertex(a - normal * w_in, c_in);
+            rightStrip[1] = sf::Vertex(a - normal * w_out, c_out);
+            rightStrip[2] = sf::Vertex(b - normal * w_in, c_in);
+            rightStrip[3] = sf::Vertex(b - normal * w_out, c_out);
+            m_window.draw(rightStrip);
+
+            // C. Cap A semi-circular ring band for this band (zero overlap)
+            sf::VertexArray capA(sf::PrimitiveType::TriangleStrip, (numCapSegments + 1) * 2);
+            for (int i = 0; i <= numCapSegments; ++i)
+            {
+                float angle = baseAngle + 3.14159265f * 0.5f + (i * 3.14159265f) / numCapSegments;
+                float cosA = std::cos(angle);
+                float sinA = std::sin(angle);
+
+                sf::Vector2f pos_in(a.x + w_in * cosA, a.y + w_in * sinA);
+                sf::Vector2f pos_out(a.x + w_out * cosA, a.y + w_out * sinA);
+
+                capA[2 * i] = sf::Vertex(pos_in, c_in);
+                capA[2 * i + 1] = sf::Vertex(pos_out, c_out);
+            }
+            m_window.draw(capA);
+
+            // D. Cap B semi-circular ring band for this band (zero overlap)
+            sf::VertexArray capB(sf::PrimitiveType::TriangleStrip, (numCapSegments + 1) * 2);
+            for (int i = 0; i <= numCapSegments; ++i)
+            {
+                float angle = baseAngle - 3.14159265f * 0.5f + (i * 3.14159265f) / numCapSegments;
+                float cosA = std::cos(angle);
+                float sinA = std::sin(angle);
+
+                sf::Vector2f pos_in(b.x + w_in * cosA, b.y + w_in * sinA);
+                sf::Vector2f pos_out(b.x + w_out * cosA, b.y + w_out * sinA);
+
+                capB[2 * i] = sf::Vertex(pos_in, c_in);
+                capB[2 * i + 1] = sf::Vertex(pos_out, c_out);
+            }
+            m_window.draw(capB);
+        }
+
+        // Draw the center plate line (slightly glowing and thin)
+        sf::VertexArray centerLine(sf::PrimitiveType::Lines, 2);
+        sf::Color lineCol = baseColor;
+        lineCol.a = 150; 
+        centerLine[0] = sf::Vertex(a, lineCol);
+        centerLine[1] = sf::Vertex(b, lineCol);
+        m_window.draw(centerLine);
     }
 
     // Draw Outer Boundary Walls
     if (!m_sim.getEnvironment().getBoundarySegments().empty())
     {
-        sf::VertexArray polyLines(sf::PrimitiveType::Lines);
         for (const auto& seg : m_sim.getEnvironment().getBoundarySegments())
         {
-            polyLines.append(sf::Vertex(toSF(seg.start), sf::Color::White));
-            polyLines.append(sf::Vertex(toSF(seg.end), sf::Color::White));
+            sf::Vector2f start = toSF(seg.start);
+            sf::Vector2f end = toSF(seg.end);
+            sf::Vector2f dir = end - start;
+            float length = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+            if (length < 0.001f) continue;
+
+            sf::RectangleShape lineShape(sf::Vector2f(length, 4.0f));
+            lineShape.setOrigin({0.f, 2.0f});
+            lineShape.setPosition(start);
+            lineShape.setRotation(sf::radians(std::atan2(dir.y, dir.x)));
+            lineShape.setFillColor(sf::Color::White);
+            m_window.draw(lineShape);
         }
-        m_window.draw(polyLines);
     }
 
     // Draw Particles
@@ -432,7 +616,7 @@ void Visualizer::render()
         sf::CircleShape circle(p.getRadius());
         circle.setPosition(toSF(p.getPosition()));
         circle.setOrigin({p.getRadius(), p.getRadius()});
-        circle.setFillColor(sf::Color(6, 182, 212)); // Fixed cyan color
+        circle.setFillColor(sf::Color::Cyan); // PARTICLE_COLOR = Cyan
         m_window.draw(circle);
     }
 
@@ -514,40 +698,61 @@ void Visualizer::drawGrid()
     float endY = std::ceil(bottom / gridSize) * gridSize;
 
     sf::VertexArray lines(sf::PrimitiveType::Lines);
-    sf::Color gridColor(50, 60, 80);
+    sf::Color minorColor(90, 98, 110, 60); // GRID_MINOR_COLOR = (90, 98, 110, 60)
+    sf::Color majorColor(125, 135, 150, 90); // GRID_MAJOR_COLOR = (125, 135, 150, 90)
 
     for (float x = startX; x <= endX; x += gridSize)
     {
         if (std::abs(x) < 0.001f) continue;
-        lines.append(sf::Vertex({x, top}, gridColor));
-        lines.append(sf::Vertex({x, bottom}, gridColor));
+        int idx = static_cast<int>(std::round(x / gridSize));
+        sf::Color color = (idx % 5 == 0) ? majorColor : minorColor;
+        lines.append(sf::Vertex({x, top}, color));
+        lines.append(sf::Vertex({x, bottom}, color));
     }
 
     for (float y = startY; y <= endY; y += gridSize)
     {
         if (std::abs(y) < 0.001f) continue;
-        lines.append(sf::Vertex({left, y}, gridColor));
-        lines.append(sf::Vertex({right, y}, gridColor));
+        int idx = static_cast<int>(std::round(y / gridSize));
+        sf::Color color = (idx % 5 == 0) ? majorColor : minorColor;
+        lines.append(sf::Vertex({left, y}, color));
+        lines.append(sf::Vertex({right, y}, color));
     }
 
     m_window.draw(lines);
 
     sf::VertexArray axes(sf::PrimitiveType::Lines);
-    sf::Color axisColor(148, 163, 184);
 
     if (top <= 0.f && bottom >= 0.f)
     {
-        axes.append(sf::Vertex({left, 0.f}, axisColor));
-        axes.append(sf::Vertex({right, 0.f}, axisColor));
+        axes.append(sf::Vertex({left, 0.f}, sf::Color(220, 150, 150, 150))); // X_AXIS_COLOR = (220, 150, 150, 150)
+        axes.append(sf::Vertex({right, 0.f}, sf::Color(220, 150, 150, 150)));
     }
 
     if (left <= 0.f && right >= 0.f)
     {
-        axes.append(sf::Vertex({0.f, top}, axisColor));
-        axes.append(sf::Vertex({0.f, bottom}, axisColor));
+        axes.append(sf::Vertex({0.f, top}, sf::Color(150, 190, 225, 150))); // Y_AXIS_COLOR = (150, 190, 225, 150)
+        axes.append(sf::Vertex({0.f, bottom}, sf::Color(150, 190, 225, 150)));
     }
 
     m_window.draw(axes);
+
+    // Draw Origin Marker (ORIGIN_COLOR = (245, 230, 180, 220), radius = 4.0f, halfSize = 10.0f)
+    if (left <= 0.f && right >= 0.f && top <= 0.f && bottom >= 0.f)
+    {
+        sf::CircleShape originMarker(4.0f);
+        originMarker.setPosition({0.f, 0.f});
+        originMarker.setOrigin({4.0f, 4.0f});
+        originMarker.setFillColor(sf::Color(245, 230, 180, 220));
+        m_window.draw(originMarker);
+
+        sf::VertexArray crosshair(sf::PrimitiveType::Lines, 4);
+        crosshair[0] = sf::Vertex({-10.0f, 0.f}, sf::Color(245, 230, 180, 220));
+        crosshair[1] = sf::Vertex({10.0f, 0.f}, sf::Color(245, 230, 180, 220));
+        crosshair[2] = sf::Vertex({0.f, -10.0f}, sf::Color(245, 230, 180, 220));
+        crosshair[3] = sf::Vertex({0.f, 10.0f}, sf::Color(245, 230, 180, 220));
+        m_window.draw(crosshair);
+    }
 }
 
 void Visualizer::updateGridCursor(sf::Vector2i mousePosition)
