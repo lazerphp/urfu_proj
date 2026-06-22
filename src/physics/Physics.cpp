@@ -48,6 +48,18 @@ Vector2f closestPointOnSegment(Vector2f p, Vector2f a, Vector2f b)
 void resolveCollisionWithSegment(Particle& p, Vector2f a, Vector2f b, float radius, bool isBoundary, const std::vector<Config::Compartment>& compartments)
 {
     Vector2f pos = p.getPosition();
+    
+    // Bounding box pre-check to discard distant segments instantly
+    float minX = std::min(a.x, b.x) - radius;
+    float maxX = std::max(a.x, b.x) + radius;
+    float minY = std::min(a.y, b.y) - radius;
+    float maxY = std::max(a.y, b.y) + radius;
+    
+    if (pos.x < minX || pos.x > maxX || pos.y < minY || pos.y > maxY)
+    {
+        return;
+    }
+
     Vector2f vel = p.getVelocity();
     Vector2f closest = closestPointOnSegment(pos, a, b);
     Vector2f diff = pos - closest;
@@ -89,6 +101,18 @@ void resolveCollisionWithZone(Particle& p, const std::vector<Vector2f>& polygon,
         Vector2f b = polygon[(i + 1) % n];
 
         Vector2f pos = p.getPosition();
+
+        // Bounding box pre-check
+        float minX = std::min(a.x, b.x) - radius;
+        float maxX = std::max(a.x, b.x) + radius;
+        float minY = std::min(a.y, b.y) - radius;
+        float maxY = std::max(a.y, b.y) + radius;
+
+        if (pos.x < minX || pos.x > maxX || pos.y < minY || pos.y > maxY)
+        {
+            continue;
+        }
+
         Vector2f vel = p.getVelocity();
         Vector2f closest = closestPointOnSegment(pos, a, b);
         Vector2f diff = pos - closest;

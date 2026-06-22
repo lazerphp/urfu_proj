@@ -26,19 +26,19 @@ void Environment::buildBoundarySegments(const Config& config)
         }
         if (matchedComp)
         {
-            if (zoneConf.type == "target")
+            if (zoneConf.type == Config::ZoneType::Target)
             {
                 auto targetZone = std::make_unique<TargetZone>(matchedComp);
                 m_targetZonePtr = targetZone.get();
                 m_zones.push_back(std::move(targetZone));
             }
-            else if (zoneConf.type == "spawn")
+            else if (zoneConf.type == Config::ZoneType::Spawn)
             {
                 m_zones.push_back(std::make_unique<SpawnZone>(matchedComp));
             }
             else
             {
-                m_zones.push_back(std::make_unique<Zone>(zoneConf.type, matchedComp));
+                m_zones.push_back(std::make_unique<Zone>(Config::ZoneType::Generic, matchedComp));
             }
         }
     }

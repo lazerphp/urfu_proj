@@ -1,18 +1,18 @@
 #pragma once
-#include <SFML/Graphics.hpp>
 #include "core/Config.hpp"
 #include "entities/Particle.hpp"
 #include "entities/Environment.hpp"
 #include "entities/Field.hpp"
 #include <vector>
 #include <memory>
+#include <string>
 
 class TargetZone;
 
 class Simulation
 {
 public:
-    Simulation();
+    Simulation(const std::string& configPath = "config.yaml");
     void run(); // Pure physics headless loop
     void update(); // Step physical state forward
 
@@ -43,35 +43,5 @@ private:
     float m_virtualTime{0.f};
     int m_reachedCount{0};
     float m_lastReportTime{-1.f};
-};
-
-class Visualizer
-{
-public:
-    Visualizer(Simulation& sim);
-    void run(); // Graphic loop with window and events
-
-private:
-    void processEvents();
-    void update();
-    void render();
-
-    sf::Vector2f snapToGrid(sf::Vector2f position) const;
-    void drawGrid();
-    void updateGridCursor(sf::Vector2i mousePosition);
-
-private:
-    Simulation& m_sim;
-    sf::RenderWindow m_window;
-
-    // View manipulation state
-    bool m_isDragging{false};
-    sf::Vector2i m_lastMousePosition{};
-
-    // Grid cursor preview
-    sf::RectangleShape m_gridCursorPreview;
-
-    // HUD Text
-    sf::Font m_font;
-    bool m_fontLoaded{false};
+    bool m_machineReadableOutput{false};
 };

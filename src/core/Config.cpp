@@ -3,6 +3,22 @@
 #include <iostream>
 #include <cstdint>
 
+namespace
+{
+Config::ZoneType parseZoneType(const std::string& type)
+{
+    if (type == "spawn")
+    {
+        return Config::ZoneType::Spawn;
+    }
+    if (type == "target")
+    {
+        return Config::ZoneType::Target;
+    }
+    return Config::ZoneType::Generic;
+}
+}
+
 Config Config::loadFromFile(const std::string& filepath)
 {
     Config config;
@@ -34,6 +50,11 @@ Config Config::loadFromFile(const std::string& filepath)
         if (root["particle_radius"])
         {
             config.particleRadius = root["particle_radius"].as<float>();
+        }
+
+        if (root["random_seed"])
+        {
+            config.randomSeed = root["random_seed"].as<unsigned int>();
         }
 
         if (root["lj_enabled"])
@@ -118,7 +139,7 @@ Config Config::loadFromFile(const std::string& filepath)
                     if (zoneNode["type"] && zoneNode["compartment"])
                     {
                         Config::ZoneConfig zone;
-                        zone.type = zoneNode["type"].as<std::string>();
+                        zone.type = parseZoneType(zoneNode["type"].as<std::string>());
                         zone.compartment = zoneNode["compartment"].as<std::string>();
                         config.zones.push_back(zone);
                     }
@@ -190,7 +211,6 @@ Config Config::loadFromFile(const std::string& filepath)
             }
         }
 
-        std::cout << "Successfully loaded configuration from: " << filepath << std::endl;
     }
     catch (const std::exception& e)
     {

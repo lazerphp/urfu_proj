@@ -32,7 +32,10 @@ FetchContent_MakeAvailable(yaml-cpp)
 add_executable(sfml_app 
     src/main.cpp 
     src/core/Simulation.cpp
+    src/core/SimulationPhysics.cpp
+    src/core/SimulationSpawn.cpp
     src/core/Config.cpp
+    src/graphics/Visualizer.cpp
     src/entities/Particle.cpp
     src/entities/Zone.cpp
     src/entities/Environment.cpp
@@ -44,6 +47,12 @@ add_executable(sfml_app
 target_include_directories(sfml_app PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+
+# Enable aggressive release optimizations
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(sfml_app PRIVATE -Ofast -march=native -flto)
+    target_link_options(sfml_app PRIVATE -Ofast -march=native -flto)
+endif()
 
 # 6. Link SFML targets and yaml-cpp
 target_link_libraries(sfml_app PRIVATE 

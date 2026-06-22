@@ -5,6 +5,13 @@
 
 struct Config
 {
+    enum class ZoneType
+    {
+        Generic,
+        Spawn,
+        Target,
+    };
+
     float gridSize{10.f};
 
     // Simulation timing settings
@@ -14,6 +21,7 @@ struct Config
     // Particle settings
     int particleCount{100};
     float particleRadius{3.f};
+    unsigned int randomSeed{42u};
 
     // Lennard-Jones (6-12) Potential settings
     bool ljEnabled{true};
@@ -46,7 +54,7 @@ struct Config
 
     struct ZoneConfig
     {
-        std::string type;
+        ZoneType type{ZoneType::Generic};
         std::string compartment;
     };
     std::vector<ZoneConfig> zones;

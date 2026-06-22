@@ -46,21 +46,39 @@ Vector2f RadialField::calculateAcceleration(const Vector2f& pos) const
 void RadialField::render(sf::RenderWindow& window) const
 {
     // Ambient reach: larger spread but very pale/low opacity (maxAlpha 110.f) for subtle decay
-    float maxRadius = std::min(120.f, std::sqrt(std::abs(m_intensity)) * 2.0f);
-    if (maxRadius < 10.f) maxRadius = 40.f;
+    float maxRadius = std::min(250.f, std::sqrt(std::abs(m_intensity)) * 3.5f);
+    if (maxRadius < 10.f) maxRadius = 70.f;
 
     // Custom colors: attractive amber/yellow or repulsive sky-blue
     sf::Color baseColor = (m_intensity < 0.f) ? sf::Color(255, 180, 70) : sf::Color(80, 190, 255);
 
-    // Smooth bell-curve function: f(x) = (1 - x^2)^2. Samples boundaries to create seamless transition bands
+    // Physically-matching inverse-square decay 1/d^2 with gamma correction for human eye perception:
+    // f(d) = maxAlpha * sqrt( (1/d^2 - 1/d_max^2) / (1/d_min^2 - 1/d_max^2) )
     const int numBands = 8;
     float x[numBands] = { 0.0f, 0.15f, 0.3f, 0.45f, 0.6f, 0.75f, 0.9f, 1.0f };
     float alphaVal[numBands];
-    float maxAlpha = 180.f;
+    float maxAlpha = 110.f; // lowered back slightly to keep it soft with gamma correction
+
+    float d_min = m_minRadius;
+    float d_max = maxRadius;
+    if (d_min >= d_max - 1.f) d_min = d_max * 0.2f;
+    float inv_min_sq = 1.f / (d_min * d_min);
+    float inv_max_sq = 1.f / (d_max * d_max);
+    float denom = inv_min_sq - inv_max_sq;
+
     for (int i = 0; i < numBands; ++i)
     {
-        float val = 1.f - x[i] * x[i];
-        alphaVal[i] = maxAlpha * val * val;
+        float d = x[i] * d_max;
+        if (d <= d_min)
+        {
+            alphaVal[i] = maxAlpha;
+        }
+        else
+        {
+            float inv_d_sq = 1.f / (d * d);
+            float factor = (inv_d_sq - inv_max_sq) / denom;
+            alphaVal[i] = maxAlpha * std::sqrt(std::max(0.f, std::min(1.f, factor)));
+        }
     }
 
     const int numSegments = 32;
@@ -146,21 +164,39 @@ void SegmentField::render(sf::RenderWindow& window) const
     sf::Vector2f normal(-tangent.y, tangent.x);
 
     // Ambient reach: larger spread but very pale/low opacity (maxAlpha 90.f) for subtle decay
-    float maxWidth = std::min(80.f, std::sqrt(std::abs(m_intensity)) * 1.5f);
-    if (maxWidth < 5.f) maxWidth = 30.f;
+    float maxWidth = std::min(150.f, std::sqrt(std::abs(m_intensity)) * 2.5f);
+    if (maxWidth < 5.f) maxWidth = 50.f;
 
     // Custom colors: attractive amber/yellow or repulsive sky-blue
     sf::Color baseColor = (m_intensity < 0.f) ? sf::Color(255, 180, 70) : sf::Color(80, 190, 255);
 
-    // Smooth bell-curve function: f(x) = (1 - x^2)^2. Samples boundaries to create seamless transition bands
+    // Physically-matching inverse-linear decay 1/d with gamma correction for human eye perception:
+    // f(d) = maxAlpha * sqrt( (1/d - 1/d_max) / (1/d_min - 1/d_max) )
     const int numBands = 8;
     float x[numBands] = { 0.0f, 0.15f, 0.3f, 0.45f, 0.6f, 0.75f, 0.9f, 1.0f };
     float alphaVal[numBands];
-    float maxAlpha = 160.f;
+    float maxAlpha = 90.f; // lowered back slightly to keep it soft with gamma correction
+
+    float d_min = 5.0f; // matches singularity limit in physics
+    float d_max = maxWidth;
+    if (d_min >= d_max - 1.f) d_min = d_max * 0.2f;
+    float inv_min = 1.f / d_min;
+    float inv_max = 1.f / d_max;
+    float denom = inv_min - inv_max;
+
     for (int i = 0; i < numBands; ++i)
     {
-        float val = 1.f - x[i] * x[i];
-        alphaVal[i] = maxAlpha * val * val;
+        float d = x[i] * d_max;
+        if (d <= d_min)
+        {
+            alphaVal[i] = maxAlpha;
+        }
+        else
+        {
+            float inv_d = 1.f / d;
+            float factor = (inv_d - inv_max) / denom;
+            alphaVal[i] = maxAlpha * std::sqrt(std::max(0.f, std::min(1.f, factor)));
+        }
     }
 
     const int numCapSegments = 24;

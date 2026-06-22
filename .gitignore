@@ -15,3 +15,14 @@
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Python caches and virtual env artifacts
+.venv
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Generated optimization artifacts
+config_optimized.yaml
+optimization_log.csv
+optimization_progress.svg
